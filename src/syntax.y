@@ -1,5 +1,5 @@
 %{
-    #include "lex.yy.c"
+    #include "lex.cpp"
     void yyerror(const char *s);
     #include "stdio.h"
     #include "stdlib.h"
@@ -54,14 +54,14 @@ ExtDef:
     Specifier ExtDecList SEMI {$$=new_tnode("ExtDef",3,$1,$2,$3);}
     | Specifier SEMI {$$=new_tnode("ExtDef",2,$1,$2);}
     | Specifier FunDec CompSt {$$=new_tnode("ExtDef",3,$1,$2,$3);}
-    | Specifier ExtDecList error { myerror(1, yylineno, "Missing Semi"); }
-    | Specifier error { myerror(1, yylineno, "Missing Semi"); }
+    | Specifier ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Semi"); }
+    | Specifier error { LogLSErrorTL(1, yylineno, "Missing Semi"); }
     ;
 
 ExtDecList:
     VarDec {$$=new_tnode("ExtDecList",1,$1);}
     | VarDec COMMA ExtDecList {$$=new_tnode("ExtDecList",3,$1,$2,$3);}
-    | VarDec ExtDecList error { myerror(1, yylineno, "Missing Comma"); }
+    | VarDec ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Comma"); }
     ;
 
 
@@ -73,24 +73,24 @@ Specifier:
 StructSpecifier: 
     STRUCT ID LC DefList RC {$$=new_tnode("StructSpecifier",5,$1,$2,$3,$4,$5);}
     | STRUCT ID {$$=new_tnode("StructSpecifier",2,$1,$2);}
-    | STRUCT ID LC DefList error { myerror(1, yylineno, "Missing RC"); }
+    | STRUCT ID LC DefList error { LogLSErrorTL(1, yylineno, "Missing RC"); }
     ;
 
 /* declarator */
 VarDec: 
     ID {$$=new_tnode("VarDec",1,$1);}
     | VarDec LB INT RB {$$=new_tnode("VarDec",4,$1,$2,$3,$4);}
-    | VarDec LB INT error %prec LOWER_ELSE { myerror(1, yylineno, "Missing RB"); }
+    | VarDec LB INT error %prec LOWER_ELSE { LogLSErrorTL(1, yylineno, "Missing RB"); }
     ;
 FunDec: 
     ID LP VarList RP {$$=new_tnode("FunDec",4,$1,$2,$3,$4);}
     | ID LP RP {$$=new_tnode("FunDec",3,$1,$2,$3);}
-    | ID LP VarList error { myerror(1, yylineno, "Missing RP"); }
-    | ID LP error { myerror(1, yylineno, "Missing RP"); }
+    | ID LP VarList error { LogLSErrorTL(1, yylineno, "Missing RP"); }
+    | ID LP error { LogLSErrorTL(1, yylineno, "Missing RP"); }
     ;
 VarList: 
     ParamDec COMMA VarList {$$=new_tnode("VarList",3,$1,$2,$3);}
-    | ParamDec VarList error { myerror(1, yylineno, "Missing Comma"); }
+    | ParamDec VarList error { LogLSErrorTL(1, yylineno, "Missing Comma"); }
     | ParamDec {$$=new_tnode("VarList",1,$1);}
     ;
 ParamDec: 
@@ -112,10 +112,10 @@ Stmt:
     | IF LP Exp RP Stmt %prec LOWER_ELSE {$$=new_tnode("Stmt",5,$1,$2,$3,$4,$5);}
     | IF LP Exp RP Stmt ELSE Stmt {$$=new_tnode("Stmt",7,$1,$2,$3,$4,$5,$6,$7);}
     | WHILE LP Exp RP Stmt {$$=new_tnode("Stmt",5,$1,$2,$3,$4,$5);}
-    | WHILE LP Exp error Stmt {myerror(1,yylineno,"Missing RP");}
-    | RETURN Exp error {myerror(1,yylineno,"Missing SEMI");}
-    | IF LP Exp error Stmt {myerror(1,yylineno,"Missing RP");}
-    | IF error Exp RP Stmt {myerror(1,yylineno,"Missing LP");}
+    | WHILE LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP");}
+    | RETURN Exp error {LogLSErrorTL(1,yylineno,"Missing SEMI");}
+    | IF LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP");}
+    | IF error Exp RP Stmt {LogLSErrorTL(1,yylineno,"Missing LP");}
     ;
 
 /* local definition */
@@ -125,13 +125,13 @@ DefList:
     ;
 Def: 
     Specifier DecList SEMI {$$=new_tnode("Def",3,$1,$2,$3);}
-    | Specifier DecList error {myerror(1,yylineno,"Missing SEMI");}
-    | error DecList SEMI {myerror(1,yylineno,"Missing Specifier");}
+    | Specifier DecList error {LogLSErrorTL(1,yylineno,"Missing SEMI");}
+    | error DecList SEMI {LogLSErrorTL(1,yylineno,"Missing Specifier");}
     ;
 DecList: 
     Dec {$$=new_tnode("DecList",1,$1);}
     | Dec COMMA DecList {$$=new_tnode("DecList",3,$1,$2,$3);}
-    | Dec DecList error {myerror(1,yylineno,"Missing Comma");}
+    | Dec DecList error {LogLSErrorTL(1,yylineno,"Missing Comma");}
     ;
 Dec: 
     VarDec {$$=new_tnode("Dec",1,$1);}
@@ -155,15 +155,15 @@ Exp:
     | Exp MUL Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
     | Exp DIV Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
     | LP Exp RP {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | LP Exp error {myerror(1,yylineno,"Missing RP");}
+    | LP Exp error {LogLSErrorTL(1,yylineno,"Missing RP");}
     | MINUS Exp {$$=new_tnode("Exp",2,$1,$2);}
     | NOT Exp {$$=new_tnode("Exp",2,$1,$2);}
     | ID LP Args RP {$$=new_tnode("Exp",4,$1,$2,$3,$4);}
-    | ID LP Args error {myerror(1,yylineno,"Missing RP");}
+    | ID LP Args error {LogLSErrorTL(1,yylineno,"Missing RP");}
     | ID LP RP {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | ID LP error   {myerror(1,yylineno,"Missing RP");}
+    | ID LP error   {LogLSErrorTL(1,yylineno,"Missing RP");}
     | Exp LB Exp RB {$$=new_tnode("Exp",4,$1,$2,$3,$4);}
-    | Exp LB Exp error  {myerror(1,yylineno,"Missing RB");}
+    | Exp LB Exp error  {LogLSErrorTL(1,yylineno,"Missing RB");}
     | Exp DOT ID {$$=new_tnode("Exp",3,$1,$2,$3);}
     | ID {$$=new_tnode("Exp",1,$1);}
     | INT {$$=new_tnode("Exp",1,$1);}
@@ -175,7 +175,7 @@ Exp:
 Args: 
     Exp COMMA Args {$$=new_tnode("Args",3,$1,$2,$3);}
     | Exp {$$=new_tnode("Args",1,$1);}
-    | Exp Args error {myerror(1,yylineno,"Missing Comma");}
+    | Exp Args error {LogLSErrorTL(1,yylineno,"Missing Comma");}
     
 
 %%
@@ -183,43 +183,3 @@ Args:
 void yyerror(const char *s){
 }
 
-void myerror(int type, int line, const char *msg){
-    error_occur = 1;
-    FILE *fp = fopen(ofname, "a+");
-    if (type == 0) {
-        fprintf(fp, "Error type A at Line %d: %s\n", line, msg);
-    }
-    if (type == 1) {
-        fprintf(fp, "Error type B at Line %d: %s\n", line, msg);
-    }
-    fclose(fp);
-}
-
-/* @TODO: print the parse tree */
-
-
-int main(int argc, char **argv)
-{
-    if(argc != 2) {
-        fprintf(stderr, "Usage: %s <file_path>\n", argv[0]);
-        exit(-1);
-    }
-    else if(!(yyin = fopen(argv[1], "r"))) {
-        perror(argv[1]);
-        exit(-1);
-    }
-
-    /* get the output-file name */
-    strcpy(ofname, argv[1]);
-    char *dot = strrchr(ofname, '.');
-    strcpy(dot, ".out");
-    FILE *fp = fopen(ofname, "w");
-    fclose(fp);
-
-    yyparse();
-
-    if(!error_occur){
-        print_parsetree(head,0);
-    }
-    return 0;
-}

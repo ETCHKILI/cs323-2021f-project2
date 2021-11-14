@@ -8,7 +8,7 @@
 #include <string>
 
 extern char log_file_name[40];
-static bool error_occur = false;
+extern bool error_occur;
 
 /// Log lexical and syntax error with type and line no.
 void LogLSErrorTL(int type, int line, const char *msg);

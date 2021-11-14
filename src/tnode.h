@@ -16,7 +16,7 @@ struct tnode
 };
 
 
-struct tnode *new_tnode(const char* name,int num,...);
+struct tnode *new_tnode(const char *name,int num,...);
 
 int check_terminate(const char* name);
 

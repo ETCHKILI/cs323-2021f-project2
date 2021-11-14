@@ -1,14 +1,14 @@
 %{
     int lineno = 1;
-    int error_occur = 0;
-    char ofname[40]; // output-file name
+    bool error_occur = false;
+    char log_file_name[40]; // output-file name
     int htoi(const char* hex_int);
-    void myerror(int type, int lineno, const char *msg);
 
-    #include "src/tnode.h"
-    #include "syntax.tab.h"
-    #include <string.h>
-    #include <stdio.h>
+    #include "tnode.h"
+    #include "splc_log.hpp"
+    #include "syntax.hpp"
+    #include "string.h"
+    #include "stdio.h"
 %}
 %option noyywrap
 %option yylineno noinput nounput
@@ -77,19 +77,19 @@ bad_id      {digit}({digit}|{letter_})+
 {id}        { yylval.nd = new_tnode("ID",0,yylineno); return ID; }
 
 
-{dec_int_err0}   { myerror(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* 0 leading int */}
-{hex_int_err0}   { myerror(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* 0 leading int */}
-{hex_int_err1}   { myerror(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* not hex digit */}
-{float_err0}    { myerror(0, yylineno, yytext); yylval.nd = new_tnode("FLOAT",0,yylineno,0); return ILLEGAL_TOKEN;}
-{char_err0}         { myerror(0, yylineno, yytext); yylval.nd = new_tnode("CHAR",0,yylineno); return ILLEGAL_TOKEN;}
-{char_err1}         { myerror(0, yylineno, yytext); yylval.nd = new_tnode("CHAR",0,yylineno); return ILLEGAL_TOKEN;}
-{bad_id}    { myerror(0, yylineno, yytext); yylval.nd = new_tnode("ID",0,yylineno); return ID; }
+{dec_int_err0}   { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* 0 leading int */}
+{hex_int_err0}   { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* 0 leading int */}
+{hex_int_err1}   { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("INT",0,yylineno,0); return ILLEGAL_TOKEN; /* not hex digit */}
+{float_err0}    { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("FLOAT",0,yylineno,0); return ILLEGAL_TOKEN;}
+{char_err0}         { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("CHAR",0,yylineno); return ILLEGAL_TOKEN;}
+{char_err1}         { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("CHAR",0,yylineno); return ILLEGAL_TOKEN;}
+{bad_id}    { LogLSErrorTL(0, yylineno, yytext); yylval.nd = new_tnode("ID",0,yylineno); return ID; }
 
 
 {next_line} { lineno += 1; }
 {empty}     { }
 
-.           { myerror(0, yylineno, yytext); return ILLEGAL_TOKEN; }
+.           { LogLSErrorTL(0, yylineno, yytext); return ILLEGAL_TOKEN; }
 
 %%
 
@@ -98,7 +98,7 @@ int htoi(const char* hex_int)
     int size = (int) strlen(hex_int);
     // if (size > 10)
     // {
-    //     myerror(0, lineno, "too large integer");
+    //     LogLSErrorTL(0, lineno, "too large integer");
     // }
 
     int res = 0;

@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
-#include "tnode.h"
+# include<stdio.h>
+# include<stdlib.h>
+# include<stdarg.h>
+# include<string.h>
+# include"tnode.h"
 
-extern char ofname[40];
+extern char log_file_name[40];
 
-struct tnode *new_tnode(const char* name,int num,...)
+struct tnode *new_tnode(const char *name,int num,...)
 {
     va_list valist; 
     struct tnode *a=(struct tnode*)malloc(sizeof(struct tnode));
@@ -16,8 +16,8 @@ struct tnode *new_tnode(const char* name,int num,...)
     //     yyerror("out of space");
     //     exit(0);
     // }
+    a->name = (char *) malloc(strlen(name));
     strcpy(a->name, name);
-//    a->name=name;
     va_start(valist,num);
 
     if(num>0)
@@ -53,7 +53,7 @@ void print_parsetree(struct tnode *a,int level)
 {
     if(a!=NULL)
     {
-        FILE *fp = fopen(ofname, "a+");
+        FILE *fp = fopen(log_file_name, "a+");
         if(a->line!=-1){
             for(int i=0; i<level; ++i)
             fprintf(fp, "  ");
