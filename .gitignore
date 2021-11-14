@@ -3,3 +3,7 @@ bin/
 *.sh
 checker/
 test/
+src/syntax.tab.c
+src/syntax.tab.h
+src/syntax.output
+src/lex.yy.c
