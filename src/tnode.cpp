@@ -2,7 +2,7 @@
 # include<stdlib.h>
 # include<stdarg.h>
 # include<string.h>
-# include"tnode.h"
+# include"tnode.hpp"
 
 extern char ofname[40];
 

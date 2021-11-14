@@ -7,7 +7,7 @@
     void myerror(int type, int lineno, const char *msg);
     void scan_multiline_comment();
 
-    #include "src/tnode.h"
+    #include "tnode.hpp"
     #include "syntax.tab.h"
     #include "string.h"
     #include "stdio.h"
