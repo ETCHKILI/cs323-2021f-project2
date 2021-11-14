@@ -1,12 +1,12 @@
-# include<stdio.h>
-# include<stdlib.h>
-# include<stdarg.h>
-# include<string.h>
-# include"tnode.hpp"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include "tnode.h"
 
 extern char ofname[40];
 
-struct tnode *new_tnode(char* name,int num,...)
+struct tnode *new_tnode(const char* name,int num,...)
 {
     va_list valist; 
     struct tnode *a=(struct tnode*)malloc(sizeof(struct tnode));
@@ -16,7 +16,8 @@ struct tnode *new_tnode(char* name,int num,...)
     //     yyerror("out of space");
     //     exit(0);
     // }
-    a->name=name;
+    strcpy(a->name, name);
+//    a->name=name;
     va_start(valist,num);
 
     if(num>0)

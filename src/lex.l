@@ -3,14 +3,12 @@
     int error_occur = 0;
     char ofname[40]; // output-file name
     int htoi(const char* hex_int);
-    // void check_int(const char* int_str);
     void myerror(int type, int lineno, const char *msg);
-    void scan_multiline_comment();
 
-    #include "tnode.hpp"
+    #include "src/tnode.h"
     #include "syntax.tab.h"
-    #include "string.h"
-    #include "stdio.h"
+    #include <string.h>
+    #include <stdio.h>
 %}
 %option noyywrap
 %option yylineno noinput nounput
@@ -95,20 +93,6 @@ bad_id      {digit}({digit}|{letter_})+
 
 %%
 
-// void check_int(const char* int_str)
-// {
-//     int size = (int) strlen(int_str);
-//     if (size > 10) 
-//     {
-//         myerror(0, lineno, "too large integer");
-//     }
-//     long long val = atoll(int_str);
-//     if (val > 2147483647)
-//     {
-//         myerror(0, lineno, "too large integer");
-//     }
-// }
-
 int htoi(const char* hex_int) 
 {
     int size = (int) strlen(hex_int);
@@ -137,29 +121,3 @@ int htoi(const char* hex_int)
 
     return res;
 }
-
-// void scan_multiline_comment()
-// {
-//     puts("comments!"); 
-//     int c;
-//     int lc = 0;
-//     while(input) {
-//         switch(input()) {
-//             case EOF:
-//                 myerror(0, lineno, "bad comments");
-//                 goto end;
-//             case '*':
-//                 if((c=input())=='/') {
-//                     goto end;
-//                 }
-//                 unput(c);
-//                 break;
-//             case '\n':
-//                 ++lc;    
-//                 break;
-//             default:
-//                 break;
-//         }
-//     }
-//     end:lineno += lc;
-// }

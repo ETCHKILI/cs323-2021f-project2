@@ -1,35 +1,27 @@
 //
-// Created by gyb on 2021/11/14.
+// Created by gyb on 2021/11/15.
 //
 
-#include <unordered_map>
-#include <vector>
-#include <string>
+#include "symbol_table.hpp"
 
-class Type;
-class Array;
-class FieldList;
+void InitScope() {
+    scope_stack.emplace_back();
+}
 
-class Type {
-public:
-    std::string name;
-    enum { PRIMITIVE, ARRAY, STRUCTURE } category;
-    union {
-        enum { INT, FLOAT, CHAR } primitive;
-        Array *array;
-        std::vector<FieldList>
-    };
-};
+void NewScope() {
+    scope_stack.emplace_back();
+}
 
-class Array {
-public:
-    Type *base;
-    int size;
-};
+void EndScope() {
+    scope_stack.pop_back();
+}
 
-class FieldList {
-    std::string name;
-    Type *type;
-};
+void InsertSymbol(std::string name) {
+    auto tmp = scope_stack.back();
+    if (tmp.count(name)) {
 
-static std::vector<std::unordered_map<std::string, Type>> scope_stack;
+    }
+}
+
+
+
