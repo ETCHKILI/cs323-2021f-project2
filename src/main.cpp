@@ -3,6 +3,9 @@
 //
 
 #include "syntax.cpp"
+#include "splc_log.hpp"
+
+
 
 int main(int argc, char **argv)
 {
@@ -24,7 +27,7 @@ int main(int argc, char **argv)
 
     yyparse();
 
-    if(!error_occur){
+    if(!ls_error_occur){
         print_parsetree(head,0);
     }
     return 0;

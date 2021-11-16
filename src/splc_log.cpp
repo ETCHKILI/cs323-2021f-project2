@@ -5,7 +5,7 @@
 #include "splc_log.hpp"
 
 void LogLSErrorTL(int type, int line, const char *msg) {
-    error_occur = true;
+    ls_error_occur = true;
     FILE *fp = fopen(log_file_name, "a+");
     if (type == 0) {
         fprintf(fp, "Error type A at Line %d: %s\n", line, msg);
@@ -17,7 +17,7 @@ void LogLSErrorTL(int type, int line, const char *msg) {
 }
 
 void LogSemanticErrorTL(int type, int line, const char *msg) {
-    error_occur = true;
+    semantic_error_occur = true;
     FILE *fp = fopen(log_file_name, "a+");
     fprintf(fp, "Error type %d at Line %d: %s\n", type, line, msg);
     fclose(fp);

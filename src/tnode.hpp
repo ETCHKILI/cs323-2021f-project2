@@ -1,3 +1,6 @@
+#ifndef CS323_2021F_PROJECT2_TNODE_HPP
+#define CS323_2021F_PROJECT2_TNODE_HPP
+
 extern int yylineno;
 extern char* yytext;
 
@@ -21,3 +24,5 @@ struct tnode *new_tnode(const char *name,int num,...);
 int check_terminate(const char* name);
 
 void print_parsetree(struct tnode*,int level);
+
+#endif //CS323_2021F_PROJECT2_TNODE_HPP

@@ -4,13 +4,31 @@
     #include "stdio.h"
     #include "stdlib.h"
     #include "string.h"
+    #include <unordered_map>
+    #include <memory>
+    #include "symbol_node.hpp"
+
+    extern Scope global_scope;
+    extern Scope *current_scope;
+    extern Scope *last_scope;
+    Type *tmp_type;
     
     struct tnode *head;
 %}
 
 %union 
 {
-    struct tnode *nd;
+    struct {
+        struct tnode *nd;
+        union {
+            SymbolNode *snd;
+            Type *tp;
+            Array *arr;
+            Field *fld;
+            Func *func;
+        };
+    } agg; 
+    // aggregate
 }
 
 %nonassoc <nd> ILLEGAL_TOKEN
@@ -42,140 +60,252 @@
 %%
 /* high-level definition */
 Program:
-    ExtDefList {head=new_tnode("Program",1,$1); $$=head;}
+    ExtDefList {
+        head=new_tnode("Program",1,$<agg.nd>1);  
+        $<agg.nd>$=head;  
+    }
     ;
 
 ExtDefList:
-    {$$=new_tnode("ExtDef",0,-1);}
-    | ExtDef ExtDefList {$$=new_tnode("ExtDefList",2,$1,$2);} 
+    {$<agg.nd>$=new_tnode("ExtDef",0,-1);}
+    | ExtDef ExtDefList {
+        $<agg.nd>$=new_tnode("ExtDefList",2,$<agg.nd>1,$<agg.nd>2);
+    } 
     ;
 
 ExtDef:
-    Specifier ExtDecList SEMI {$$=new_tnode("ExtDef",3,$1,$2,$3);}
-    | Specifier SEMI {$$=new_tnode("ExtDef",2,$1,$2);}
-    | Specifier FunDec CompSt {$$=new_tnode("ExtDef",3,$1,$2,$3);}
-    | Specifier ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Semi"); }
-    | Specifier error { LogLSErrorTL(1, yylineno, "Missing Semi"); }
+    Specifier ExtDecList SEMI {
+        $<agg.nd>$=new_tnode("ExtDef",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+    }
+    | Specifier SEMI {$<agg.nd>$=new_tnode("ExtDef",2,$<agg.nd>1,$<agg.nd>2);}
+    | Specifier FunDec CompSt {
+        $<agg.nd>$=new_tnode("ExtDef",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
+        global_scope.map[tmp_snd->id] = tmp_snd;
+        $<agg.snd>$ = tmp_snd;
+    }
+    | Specifier ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Semi"); YYABORT; }
+    | Specifier error { LogLSErrorTL(1, yylineno, "Missing Semi"); YYABORT; }
     ;
 
 ExtDecList:
-    VarDec {$$=new_tnode("ExtDecList",1,$1);}
-    | VarDec COMMA ExtDecList {$$=new_tnode("ExtDecList",3,$1,$2,$3);}
-    | VarDec ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Comma"); }
+    VarDec {
+        $<agg.nd>$ = new_tnode("ExtDecList",1,$<agg.nd>1);
+        SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
+        global_scope.map[tmp_snd->id] = tmp_snd;
+        $<agg.snd>$ = tmp_snd;
+    }
+    | VarDec COMMA ExtDecList {
+        $<agg.nd>$=new_tnode("ExtDecList",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
+        global_scope.map[tmp_snd->id] = tmp_snd;
+        $<agg.snd>$ = tmp_snd;
+    }
+    | VarDec ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Comma"); YYABORT;}
     ;
 
 
 /* specifier */
 Specifier: 
-    TYPE {$$=new_tnode("Specifier",1,$1);}
-    | StructSpecifier {$$=new_tnode("Specifier",1,$1);}
+    TYPE {
+        $<agg.nd>$ = new_tnode("Specifier",1,$<agg.nd>1); 
+        $<agg.tp>$ = getPrimitiveType($<agg.nd->str_val>1);
+        tmp_type = $<agg.tp>$;
+    }
+    | StructSpecifier {
+        $<agg.nd>$ = new_tnode("Specifier",1,$<agg.nd>1); 
+        $<agg.tp>$ = $<agg.tp>1;
+        tmp_type = $<agg.tp>$;
+    }
     ;
 StructSpecifier: 
-    STRUCT ID LC DefList RC {$$=new_tnode("StructSpecifier",5,$1,$2,$3,$4,$5);}
-    | STRUCT ID {$$=new_tnode("StructSpecifier",2,$1,$2);}
-    | STRUCT ID LC DefList error { LogLSErrorTL(1, yylineno, "Missing RC"); }
+    STRUCT ID LC DefList RC {
+        $<agg.nd>$ = new_tnode("StructSpecifier",5,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4,$<agg.nd>5);
+        auto f = getFieldFromScope(last_scope); 
+        $<agg.tp>$ = getStructType($<agg.nd->str_val>2, f);
+        tmp_type = $<agg.tp>$;
+    }
+    | STRUCT ID {
+        $<agg.nd>$=new_tnode("StructSpecifier",2,$<agg.nd>1,$<agg.nd>2);
+        $<agg.tp>$ = getStructType($<agg.nd->str_val>2);
+        tmp_type = $<agg.tp>$;
+    }
+    | STRUCT ID LC DefList error { LogLSErrorTL(1, yylineno, "Missing RC"); YYABORT;}
     ;
 
 /* declarator */
 VarDec: 
-    ID {$$=new_tnode("VarDec",1,$1);}
-    | VarDec LB INT RB {$$=new_tnode("VarDec",4,$1,$2,$3,$4);}
-    | VarDec LB INT error %prec LOWER_ELSE { LogLSErrorTL(1, yylineno, "Missing RB"); }
+    ID { 
+        $<agg.nd>$=new_tnode("VarDec",1,$<agg.nd>1); 
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        $<agg.tp>$ = tmp_type;
+    }
+    | VarDec LB INT RB {
+        $<agg.nd>$=new_tnode("VarDec",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        
+        if ($<agg.tp->category>1 != Category::ARRAY) {
+            $<agg.tp>$ = getArrayType(new Array(tmp_type, $<agg.nd->int_val>3));
+        } else {
+            Array *sub_arr = new Array(tmp_type, $<agg.nd->int_val>3);
+            (findLastArr($<agg.tp>1))->base = getArrayType(sub_arr);
+        }
+    }
+    | VarDec LB INT error %prec LOWER_ELSE { 
+        LogLSErrorTL(1, yylineno, "Missing RB"); 
+        YYABORT;
+    }
     ;
 FunDec: 
-    ID LP VarList RP {$$=new_tnode("FunDec",4,$1,$2,$3,$4);}
-    | ID LP RP {$$=new_tnode("FunDec",3,$1,$2,$3);}
-    | ID LP VarList error { LogLSErrorTL(1, yylineno, "Missing RP"); }
-    | ID LP error { LogLSErrorTL(1, yylineno, "Missing RP"); }
+    ID LP VarList RP {
+        $<agg.nd>$=new_tnode("FunDec",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        auto tmp_func = new Func($<agg.fld>3, tmp_type);
+        auto func_type = getFuncType(tmp_func);
+        $<agg.tp>$ = func_type;
+    }
+    | ID LP RP {
+        $<agg.nd>$=new_tnode("FunDec",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        auto tmp_func = new Func(nullptr, tmp_type);
+        auto func_type = getFuncType(tmp_func);
+        $<agg.tp>$ = func_type;
+    }
+    | ID LP VarList error { LogLSErrorTL(1, yylineno, "Missing RP"); YYABORT;}
+    | ID LP error { LogLSErrorTL(1, yylineno, "Missing RP"); YYABORT;}
     ;
 VarList: 
-    ParamDec COMMA VarList {$$=new_tnode("VarList",3,$1,$2,$3);}
-    | ParamDec VarList error { LogLSErrorTL(1, yylineno, "Missing Comma"); }
-    | ParamDec {$$=new_tnode("VarList",1,$1);}
+    ParamDec COMMA VarList {
+        $<agg.nd>$=new_tnode("VarList",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.fld>$ = PushBackField($<agg.fld>1, $<agg.fld>2);
+    }
+    | ParamDec VarList error { LogLSErrorTL(1, yylineno, "Missing Comma"); YYABORT;}
+    | ParamDec {
+        $<agg.nd>$=new_tnode("VarList",1,$<agg.nd>1);
+        $<agg.fld>$ = $<agg.fld>1;
+    }
     ;
 ParamDec: 
-    Specifier VarDec {$$=new_tnode("ParamDec",2,$1,$2);}
+    Specifier VarDec {
+        $<agg.nd>$=new_tnode("ParamDec",2,$<agg.nd>1,$<agg.nd>2);
+        $<agg.fld>$ = new Field($<agg.nd->str_val>2, $<agg.tp>2);
+    }
     ;  
 
 /* statement */
 CompSt: 
-    LC DefList StmtList RC {$$=new_tnode("CompSt",4,$1,$2,$3,$4);}
+    LC DefList StmtList RC {
+        $<agg.nd>$=new_tnode("CompSt",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
+    }
     ;
 StmtList: 
-    {$$=new_tnode("StmtList",0,-1);}
-    | Stmt StmtList {$$=new_tnode("StmtList",2,$1,$2);}
+    {$<agg.nd>$=new_tnode("StmtList",0,-1);}
+    | Stmt StmtList {$<agg.nd>$=new_tnode("StmtList",2,$<agg.nd>1,$<agg.nd>2);}
     ;
 Stmt: 
-    Exp SEMI {$$=new_tnode("Stmt",2,$1,$2);}
-    | CompSt {$$=new_tnode("Stmt",1,$1);}
-    | RETURN Exp SEMI {$$=new_tnode("Stmt",3,$1,$2,$3);}
-    | IF LP Exp RP Stmt %prec LOWER_ELSE {$$=new_tnode("Stmt",5,$1,$2,$3,$4,$5);}
-    | IF LP Exp RP Stmt ELSE Stmt {$$=new_tnode("Stmt",7,$1,$2,$3,$4,$5,$6,$7);}
-    | WHILE LP Exp RP Stmt {$$=new_tnode("Stmt",5,$1,$2,$3,$4,$5);}
-    | WHILE LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP");}
-    | RETURN Exp error {LogLSErrorTL(1,yylineno,"Missing SEMI");}
-    | IF LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP");}
-    | IF error Exp RP Stmt {LogLSErrorTL(1,yylineno,"Missing LP");}
+    Exp SEMI {$<agg.nd>$=new_tnode("Stmt",2,$<agg.nd>1,$<agg.nd>2);}
+    | CompSt {$<agg.nd>$=new_tnode("Stmt",1,$<agg.nd>1);}
+    | RETURN Exp SEMI {$<agg.nd>$=new_tnode("Stmt",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | IF LP Exp RP Stmt %prec LOWER_ELSE {$<agg.nd>$=new_tnode("Stmt",5,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4,$<agg.nd>5);}
+    | IF LP Exp RP Stmt ELSE Stmt {$<agg.nd>$=new_tnode("Stmt",7,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4,$<agg.nd>5,$<agg.nd>6,$<agg.nd>7);}
+    | WHILE LP Exp RP Stmt {$<agg.nd>$=new_tnode("Stmt",5,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4,$<agg.nd>5);}
+    | WHILE LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
+    | RETURN Exp error {LogLSErrorTL(1,yylineno,"Missing SEMI"); YYABORT;}
+    | IF LP Exp error Stmt {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
+    | IF error Exp RP Stmt {LogLSErrorTL(1,yylineno,"Missing LP"); YYABORT;}
     ;
 
 /* local definition */
 DefList: 
-    {$$=new_tnode("DefList",0,-1);}
-    | Def DefList {$$=new_tnode("DefList",2,$1,$2);}
+    {$<agg.nd>$=new_tnode("DefList",0,-1);}
+    | Def DefList {$<agg.nd>$=new_tnode("DefList",2,$<agg.nd>1,$<agg.nd>2);}
     ;
 Def: 
-    Specifier DecList SEMI {$$=new_tnode("Def",3,$1,$2,$3);}
-    | Specifier DecList error {LogLSErrorTL(1,yylineno,"Missing SEMI");}
-    | error DecList SEMI {LogLSErrorTL(1,yylineno,"Missing Specifier");}
+    Specifier DecList SEMI {
+        $<agg.nd>$=new_tnode("Def",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+    }
+    | Specifier DecList error {LogLSErrorTL(1,yylineno,"Missing SEMI"); YYABORT;}
+    | error DecList SEMI {LogLSErrorTL(1,yylineno,"Missing Specifier"); YYABORT;}
     ;
 DecList: 
-    Dec {$$=new_tnode("DecList",1,$1);}
-    | Dec COMMA DecList {$$=new_tnode("DecList",3,$1,$2,$3);}
-    | Dec DecList error {LogLSErrorTL(1,yylineno,"Missing Comma");}
+    Dec {
+        $<agg.nd>$=new_tnode("DecList",1,$<agg.nd>1);
+        
+        auto s = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1);
+        current_scope->map[s->id] = s;
+    }
+    | Dec COMMA DecList {
+        $<agg.nd>$=new_tnode("DecList",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        
+        auto s = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1);
+        current_scope->map[s->id] = s;
+    }
+    | Dec DecList error {LogLSErrorTL(1,yylineno,"Missing Comma"); YYABORT;}
     ;
 Dec: 
-    VarDec {$$=new_tnode("Dec",1,$1);}
-    | VarDec ASSIGN Exp {$$=new_tnode("Dec",3,$1,$2,$3);}
+    VarDec {
+        $<agg.nd>$=new_tnode("Dec",1,$<agg.nd>1);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        $<agg.tp>$ = $<agg.tp>1;
+    }
+    | VarDec ASSIGN Exp {
+        $<agg.nd>$=new_tnode("Dec",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        $<agg.tp>$ = $<agg.tp>1;
+    }
     ;
 
 
 /* Expression */
 Exp: 
-    Exp ASSIGN Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp AND Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp OR Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp LT Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp LE Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp GT Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp GE Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp NE Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp EQ Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp PLUS Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp MINUS Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp MUL Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | Exp DIV Exp {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | LP Exp RP {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | LP Exp error {LogLSErrorTL(1,yylineno,"Missing RP");}
-    | MINUS Exp {$$=new_tnode("Exp",2,$1,$2);}
-    | NOT Exp {$$=new_tnode("Exp",2,$1,$2);}
-    | ID LP Args RP {$$=new_tnode("Exp",4,$1,$2,$3,$4);}
-    | ID LP Args error {LogLSErrorTL(1,yylineno,"Missing RP");}
-    | ID LP RP {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | ID LP error   {LogLSErrorTL(1,yylineno,"Missing RP");}
-    | Exp LB Exp RB {$$=new_tnode("Exp",4,$1,$2,$3,$4);}
-    | Exp LB Exp error  {LogLSErrorTL(1,yylineno,"Missing RB");}
-    | Exp DOT ID {$$=new_tnode("Exp",3,$1,$2,$3);}
-    | ID {$$=new_tnode("Exp",1,$1);}
-    | INT {$$=new_tnode("Exp",1,$1);}
-    | FLOAT {$$=new_tnode("Exp",1,$1);}
-    | CHAR {$$=new_tnode("Exp",1,$1);}
-    | ILLEGAL_TOKEN Exp {$$=new_tnode("Exp",2,$1,$2);}
-    | ILLEGAL_TOKEN {$$=new_tnode("Exp",1,$1);}
+    Exp ASSIGN Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp AND Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp OR Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp LT Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp LE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp GT Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp GE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp NE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp EQ Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp PLUS Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp MINUS Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp MUL Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp DIV Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | LP Exp RP {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | LP Exp error {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
+    | MINUS Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
+    | NOT Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
+    | ID LP Args RP {
+        $<agg.nd>$=new_tnode("Exp",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+    }
+    | ID LP Args error {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
+    | ID LP RP {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+    }
+    | ID LP error   {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
+    | Exp LB Exp RB {$<agg.nd>$=new_tnode("Exp",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);}
+    | Exp LB Exp error  {LogLSErrorTL(1,yylineno,"Missing RB"); YYABORT;}
+    | Exp DOT ID {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>3;
+    }
+    | ID {
+        $<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);
+        $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+    }
+    | INT {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
+    | FLOAT {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
+    | CHAR {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
+    | ILLEGAL_TOKEN Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
+    | ILLEGAL_TOKEN {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
     ;
 Args: 
-    Exp COMMA Args {$$=new_tnode("Args",3,$1,$2,$3);}
-    | Exp {$$=new_tnode("Args",1,$1);}
-    | Exp Args error {LogLSErrorTL(1,yylineno,"Missing Comma");}
+    Exp COMMA Args {$<agg.nd>$=new_tnode("Args",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    | Exp {$<agg.nd>$=new_tnode("Args",1,$<agg.nd>1);}
+    | Exp Args error {LogLSErrorTL(1,yylineno,"Missing Comma"); YYABORT;}
     
 
 %%
