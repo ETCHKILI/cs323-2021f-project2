@@ -1,0 +1,9 @@
+FUNCTION fuck :
+RETURN #0
+
+
+FUNCTION main :
+t1 := CALL fuck
+t2 := - t1
+WRITE t2
+RETURN #0

@@ -25,8 +25,8 @@
             Type *tp;
             Array *arr;
             Field *fld;
-            Func *func;
         };
+        bool lv;
     } agg; 
     // aggregate
 }
@@ -80,9 +80,14 @@ ExtDef:
     | Specifier SEMI {$<agg.nd>$=new_tnode("ExtDef",2,$<agg.nd>1,$<agg.nd>2);}
     | Specifier FunDec CompSt {
         $<agg.nd>$=new_tnode("ExtDef",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
-        SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
+
+        if (SymbolConflict($<agg.nd->str_val>1)) {
+            LogSemanticErrorTL(3, @$.first_line, "Function redefined");
+        }
+        SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>2, $<agg.tp>1); 
         global_scope.map[tmp_snd->id] = tmp_snd;
         $<agg.snd>$ = tmp_snd;
+        
     }
     | Specifier ExtDecList error { LogLSErrorTL(1, yylineno, "Missing Semi"); YYABORT; }
     | Specifier error { LogLSErrorTL(1, yylineno, "Missing Semi"); YYABORT; }
@@ -91,12 +96,18 @@ ExtDef:
 ExtDecList:
     VarDec {
         $<agg.nd>$ = new_tnode("ExtDecList",1,$<agg.nd>1);
+        if (SymbolConflict($<agg.nd->str_val>1)) {
+            LogSemanticErrorTL(3, @$.first_line, "Variable redefined");
+        }
         SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
         global_scope.map[tmp_snd->id] = tmp_snd;
-        $<agg.snd>$ = tmp_snd;
+        $<agg.snd>$ = tmp_snd;  
     }
     | VarDec COMMA ExtDecList {
         $<agg.nd>$=new_tnode("ExtDecList",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        if (SymbolConflict($<agg.nd->str_val>1)) {
+            LogSemanticErrorTL(3, @$.first_line, "Variable redefined");
+        }
         SymbolNode *tmp_snd = new SymbolNode(@$.first_line, $<agg.nd->str_val>1, $<agg.tp>1); 
         global_scope.map[tmp_snd->id] = tmp_snd;
         $<agg.snd>$ = tmp_snd;
@@ -160,15 +171,15 @@ FunDec:
     ID LP VarList RP {
         $<agg.nd>$=new_tnode("FunDec",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
-        auto tmp_func = new Func($<agg.fld>3, tmp_type);
-        auto func_type = getFuncType(tmp_func);
+        
+        auto func_type = makeFuncType(tmp_type, $<agg.fld>3);
         $<agg.tp>$ = func_type;
     }
     | ID LP RP {
         $<agg.nd>$=new_tnode("FunDec",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
-        auto tmp_func = new Func(nullptr, tmp_type);
-        auto func_type = getFuncType(tmp_func);
+        
+        auto func_type = makeFuncType(tmp_type, nullptr);
         $<agg.tp>$ = func_type;
     }
     | ID LP VarList error { LogLSErrorTL(1, yylineno, "Missing RP"); YYABORT;}
@@ -252,55 +263,178 @@ Dec:
         $<agg.nd>$=new_tnode("Dec",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
         $<agg.tp>$ = $<agg.tp>1;
+
+        if (!CheckType($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(5, @1.first_line, "unmatched type");
+        }
+        if ($<agg.lv>1 == false) {
+            LogSemanticErrorTL(6, @1.first_line, "Rvalue on the left side of ASSIGN");
+        }
     }
     ;
 
 
 /* Expression */
 Exp: 
-    Exp ASSIGN Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp AND Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp OR Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp LT Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp LE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp GT Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp GE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp NE Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp EQ Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp PLUS Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp MINUS Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp MUL Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | Exp DIV Exp {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
-    | LP Exp RP {$<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
+    Exp ASSIGN Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        if (!CheckType($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(5, @2.first_line, "unmatched type");
+        }
+        if ($<agg.lv>1 == false) {
+            LogSemanticErrorTL(6, @1.first_line, "Rvalue on the left side of ASSIGN");
+        }
+    }
+    | Exp AND Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckInt($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp OR Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckInt($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp LT Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp LE Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp GT Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }      
+    }
+    | Exp GE Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp NE Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp EQ Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp PLUS Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp MINUS Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp MUL Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        }
+    }
+    | Exp DIV Exp {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>1;
+        if (!CheckIF($<agg.tp>1, $<agg.tp>3)) {
+            LogSemanticErrorTL(7, @2.first_line, "unmatched operand");
+        } 
+    }
+    | LP Exp RP {
+        $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
+        $<agg.tp>$ = $<agg.tp>2;
+    }
     | LP Exp error {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
-    | MINUS Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
-    | NOT Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
+    | MINUS Exp {
+        $<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);
+        $<agg.tp>$ = $<agg.tp>2;
+        if (!CheckIF($<agg.tp>2, $<agg.tp>2)) {
+            LogSemanticErrorTL(7, @1.first_line, "unmatched operand");
+        } 
+    }
+    | NOT Exp {
+        $<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);
+        $<agg.tp>$ = $<agg.tp>2;
+        if (!CheckInt($<agg.tp>2, $<agg.tp>2)) {
+            LogSemanticErrorTL(7, @1.first_line, "unmatched operand");
+        } 
+    }
     | ID LP Args RP {
         $<agg.nd>$=new_tnode("Exp",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        auto p_type = LookUpSymbolType($<agg.nd->str_val>1);
+        if (p_type == nullptr) {
+            LogSemanticErrorTL(2, @$.first_line, "Function used without define");
+        }
+        $<agg.tp>$ = p_type;
+        $<agg.lv>$ = false;
     }
     | ID LP Args error {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
     | ID LP RP {
         $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        auto p_type = LookUpSymbolType($<agg.nd->str_val>1);
+        if (p_type == nullptr) {
+            LogSemanticErrorTL(2, @$.first_line, "Function used without define");
+        }
+        $<agg.tp>$ = p_type;
+        $<agg.lv>$ = false;
     }
     | ID LP error   {LogLSErrorTL(1,yylineno,"Missing RP"); YYABORT;}
-    | Exp LB Exp RB {$<agg.nd>$=new_tnode("Exp",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);}
+    | Exp LB Exp RB {
+        $<agg.nd>$=new_tnode("Exp",4,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3,$<agg.nd>4);
+    }
     | Exp LB Exp error  {LogLSErrorTL(1,yylineno,"Missing RB"); YYABORT;}
     | Exp DOT ID {
         $<agg.nd>$=new_tnode("Exp",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
         $<agg.nd->str_val>$ = $<agg.nd->str_val>3;
+        $<agg.lv>$ = true;
     }
     | ID {
         $<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);
         $<agg.nd->str_val>$ = $<agg.nd->str_val>1;
+        auto p_type = LookUpSymbolType($<agg.nd->str_val>1);
+        if (p_type == nullptr) {
+            LogSemanticErrorTL(1, @$.first_line, "variable used without define");
+        }
+        $<agg.tp>$ = p_type;
+        $<agg.lv>$ = true;
     }
-    | INT {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
+    | INT {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1); }
     | FLOAT {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
     | CHAR {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
-    | ILLEGAL_TOKEN Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2);}
-    | ILLEGAL_TOKEN {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1);}
+    | ILLEGAL_TOKEN Exp {$<agg.nd>$=new_tnode("Exp",2,$<agg.nd>1,$<agg.nd>2); YYABORT; }
+    | ILLEGAL_TOKEN {$<agg.nd>$=new_tnode("Exp",1,$<agg.nd>1); YYABORT; }
     ;
 Args: 
     Exp COMMA Args {$<agg.nd>$=new_tnode("Args",3,$<agg.nd>1,$<agg.nd>2,$<agg.nd>3);}
@@ -312,4 +446,3 @@ Args:
 
 void yyerror(const char *s){
 }
-

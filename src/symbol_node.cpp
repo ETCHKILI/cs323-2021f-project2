@@ -26,21 +26,31 @@ Scope *EndScope() {
     return current_scope;
 }
 
-bool SymbolConflict(Scope *current, std::string id) {
-    if (current->map.count(id)) {
+bool SymbolConflict(const std::string& id) {
+    if (current_scope->map.count(id)) {
         return true;
     }
     return false;
 }
 
-bool SymbolDefined(Scope *current, std::string id) {
-    auto tmp = current;
+bool SymbolDefined(const std::string& id) {
+    auto tmp = current_scope;
     do {
-        if (current->map.count(id)) {
+        if (tmp->map.count(id)) {
             return true;
         }
     } while ((tmp=tmp->fa) != nullptr);
     return false;
+}
+
+Type *LookUpSymbolType(const std::string& id) {
+    auto tmp = current_scope;
+    do {
+        if (tmp->map.count(id)) {
+            break;
+        }
+    } while ((tmp=tmp->fa) != nullptr);
+    return tmp->map[id]->type;
 }
 
 Field *getFieldFromScope(Scope *sc) {

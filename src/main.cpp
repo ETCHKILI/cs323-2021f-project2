@@ -27,8 +27,6 @@ int main(int argc, char **argv)
 
     yyparse();
 
-    if(!ls_error_occur){
-        print_parsetree(head,0);
-    }
+
     return 0;
 }

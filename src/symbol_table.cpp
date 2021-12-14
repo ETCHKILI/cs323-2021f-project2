@@ -15,6 +15,7 @@ Type::Type(const Type &o) {
 Type &Type::operator=(const Type &o) {
     name = o.name;
     category = o.category;
+    params = o.params;
     switch (o.category) {
         case Category::PRIMITIVE:
             primitive = o.primitive;
@@ -25,13 +26,19 @@ Type &Type::operator=(const Type &o) {
         case Category::STRUCTURE:
             field_list = o.field_list;
             break;
-        case Category::FUNCTION:
-            func = o.func;
-            break;
     }
     return (*this);
 }
 
+
+
+bool Type::operator==(const Type &rhs) const {
+    return false;
+}
+
+bool Type::operator!=(const Type &rhs) const {
+    return !(rhs == *this);
+}
 
 
 Type *getPrimitiveType(std::string s) {
@@ -69,11 +76,9 @@ Type *getArrayType(Array *array) {
     return res;
 }
 
-Type *getFuncType(Func *func) {
-    Type *res = new Type();
-    res->category = Category::FUNCTION;
-    res->func = func;
-    return res;
+Type *makeFuncType(Type *tp, Field *field) {
+    tp->params = field;
+    tp->is_func = true;
 }
 
 Type *findLastType(Type *tp) {
@@ -109,6 +114,60 @@ Field *PushBackField(Field *head, Field *src) {
 }
 
 
-Func::Func(Field *params, Type *returnType) : params(params), return_type(returnType) {}
-
 Field::Field(const std::string &name, Type *type) : name(name), type(type) {}
+
+bool CheckType(Type *a, Type *b) {
+    if (!a || !b) {
+        return false;
+    }
+    if (a->category ==Category::PRIMITIVE && b->category == Category::PRIMITIVE) {
+        return a->primitive == b->primitive;
+    }
+    if (a->category == Category::STRUCTURE && b->category == Category::STRUCTURE) {
+        return a->name == b->name;
+    }
+    if (a->category == Category::ARRAY && b->category == Category::ARRAY ) {
+        return CheckArray(a->array, b->array);
+    }
+    return false;
+}
+
+bool CheckArray(Array *a, Array *b) {
+    if (!a || !b) {
+        return false;
+    }
+    if (a->size != b->size) {
+        return false;
+    } else if (!CheckType(a->base, b->base)) {
+        return false;
+    }
+    return true;
+}
+
+bool CheckInt(Type *a, Type *b) {
+    if (!a || !b) {
+        return false;
+    }
+
+    return a->category == Category::PRIMITIVE
+        && b->category == Category::PRIMITIVE
+        && a->primitive == Primitive::PR_INT
+        && b->primitive == Primitive::PR_INT;
+}   
+
+
+bool CheckIF(Type *a, Type *b) {
+    if (!a || !b) {
+        return false;
+    }
+
+    return a->category == Category::PRIMITIVE
+        && b->category == Category::PRIMITIVE
+        && (
+            (a->primitive == Primitive::PR_INT && b->primitive == Primitive::PR_INT) || 
+            (a->primitive == Primitive::PR_FLOAT && b->primitive == Primitive::PR_FLOAT)
+        );
+        
+        
+        
+}

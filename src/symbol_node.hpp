@@ -40,9 +40,11 @@ Scope *StartScope();
 
 Scope *EndScope();
 
-bool SymbolConflict(std::string id);
+bool SymbolConflict(const std::string& id);
 
-bool LookUpSymbol(std::string id);
+bool SymbolDefined(const std::string& id);
+
+Type *LookUpSymbolType(const std::string& id);
 
 Field *getFieldFromScope(Scope *sc);
 

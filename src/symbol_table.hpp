@@ -13,7 +13,7 @@
 #include "splc_log.hpp"
 #include "tnode.hpp"
 
-enum Category { PRIMITIVE=0, ARRAY=1, STRUCTURE=2, FUNCTION=3 };
+enum Category { PRIMITIVE=0, ARRAY=1, STRUCTURE=2 };
 enum Primitive { PR_INT=0, PR_FLOAT=1, PR_CHAR=2 };
 
 class Type;
@@ -37,13 +37,13 @@ public:
     Field(const std::string &name, Type *type);
 };
 
-class Func {
-public:
-    Field *params;
-    Type *return_type;
-
-    Func(Field *params, Type *returnType);
-};
+//class Func {
+//public:
+//    Field *params;
+//    Type *return_type;
+//
+//    Func(Field *params, Type *returnType);
+//};
 
 class Type {
 public:
@@ -53,13 +53,18 @@ public:
         Primitive primitive=Primitive::PR_INT;
         Array *array;
         Field *field_list;
-        Func *func;
     };
+    Field *params = nullptr;
+    bool is_func = false;
 
     Type()=default;
     Type(const Type &o);
 
-    Type &operator=(const Type& o); 
+    Type &operator=(const Type& o);
+
+    bool operator==(const Type &rhs) const;
+
+    bool operator!=(const Type &rhs) const;
 };
 
 // static std::vector<std::unordered_map<std::string, Type>> scope_stack;
@@ -70,13 +75,19 @@ Type *getPrimitiveType(std::string s);
 Type *getStructType(const std::string& id, Field *field_list);
 Type *getStructType(const std::string& id);
 Type *getArrayType(Array *array);
-Type *getFuncType(Func *func);
+
+Type *makeFuncType(Type *tp, Field *field);
 
 Type *findLastType(Type *tp);
 
 Array *findLastArr(Type *arr);
 
 Field *PushBackField(Field *head, Field *src);
+
+bool CheckType(Type *a, Type *b);
+bool CheckArray(Array *a, Array *b);
+bool CheckInt(Type *a, Type *b);
+bool CheckIF(Type *a, Type *b);
 
 
 
